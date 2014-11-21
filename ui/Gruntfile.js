@@ -98,6 +98,34 @@ module.exports = function (grunt) {
             //this is where the tests would be called from
             files: ['src/test/js/*.js']
         },
+        mochaWebdriver: {
+            options: {
+                autoInstall: true,
+                usePromises: true,
+                reporter: 'spec',
+                timeout: 1000 * 30
+            },
+            phantom: {
+                src: ['src/test/js/wd/*.js'],
+                options: {
+                    hostname: '127.0.0.1',
+                    usePhantom: true,
+                    phantomPort: 5555
+                }
+            },
+            selenium: {
+                src: ['src/test/js/wd/*.js'],
+                options: {
+                    // make sure to start selenium server at host:port first
+                    hostname: '127.0.0.1',
+                    port: 4444,
+                    // mochaWebdriver always starts a selenium server so
+                    // starting phantomjs instance that will not be used
+                    phantomPort: 5555,
+                    usePhantom: true
+                }
+            }
+        },
         express: {
             options: {
                 port: 8282,
@@ -144,11 +172,15 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-express');
     grunt.loadNpmTasks('grunt-casperjs');
     grunt.loadNpmTasks('grunt-sed');
+    grunt.loadNpmTasks('grunt-mocha-webdriver');
 
     //the grunt-zip task interferes with grunt-express, but since grunt loads these tasks in serially, we can
     //just load it in down here after the express task is loaded. DO NOT move this task above the test task or
     //all tests will fail.
-    grunt.registerTask('test', ['express:test','casperjs']);
+    grunt.registerTask('test', ['express:test', 'mochaWebdriver:phantom']);
+    grunt.registerTask('test:selenium', ['express:test', 'mochaWebdriver:selenium']);
+    grunt.registerTask('casper-test', ['express:test', 'casper']);
+
     grunt.registerTask('bower-offline-install', 'Bower offline install work-around', function() {
         var bower = require('bower');
         var done = this.async();
@@ -182,13 +214,13 @@ module.exports = function (grunt) {
             });
     });
 
-    var buildTasks = ['clean', 'bower-offline-install', 'sed:imports', 'less','cssmin', 'jshint'];
+    var buildTasks = ['clean', 'bower-offline-install', 'sed:imports', 'less','cssmin', 'jshint', 'test'];
     try {
         grunt.log.writeln('Checking for python');
         var pythonPath = which.sync('python');
         if(pythonPath) {
             grunt.log.writeln('Found python');
-            buildTasks = ['clean', 'bower-offline-install','sed:imports', 'less', 'cssmin', 'jshint', 'test'];
+            buildTasks = ['clean', 'bower-offline-install','sed:imports', 'less', 'cssmin', 'jshint', 'test:casper', 'test'];
         }
     } catch (e) {
         grunt.log.writeln('Python is not installed. Please install Python and ensure that it is in your path to run tests.');
